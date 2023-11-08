@@ -273,28 +273,33 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 // QueryMultiple satisfies the QueryMultiple function on the apm.APM interface
 func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
 	allSeries := make([]sdk.TimestampedMetrics, 0)
-	if m, ok := a.series[q]; ok {
-		serie := make(sdk.TimestampedMetrics, 0)
-		idxFrom, _ := sort.Find(len(m), func(i int) int {
-			if m[i].Timestamp.After(r.From) {
+	m, err := evaluateExpression(q, a.series)
+	if err != nil {
+		return nil, err
+	}
+
+	// if m, ok := a.series[q]; ok {
+	serie := make(sdk.TimestampedMetrics, 0)
+	idxFrom, _ := sort.Find(len(m), func(i int) int {
+		if m[i].Timestamp.After(r.From) {
+			return -1
+		}
+		return 1
+	})
+	if idxFrom < len(m) {
+		idxTo, _ := sort.Find(len(m), func(i int) int {
+			if m[i].Timestamp.After(r.To) {
 				return -1
 			}
 			return 1
 		})
-		if idxFrom < len(m) {
-			idxTo, _ := sort.Find(len(m), func(i int) int {
-				if m[i].Timestamp.After(r.To) {
-					return -1
-				}
-				return 1
-			})
-			if idxTo >= idxFrom {
-				serie = m[idxFrom:idxTo]
-			}
+		if idxTo >= idxFrom {
+			serie = m[idxFrom:idxTo]
 		}
-
-		allSeries = append(allSeries, serie)
 	}
+
+	allSeries = append(allSeries, serie)
+	// }
 
 	return allSeries, nil
 }
